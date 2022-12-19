@@ -20,6 +20,8 @@
 #include "main.h"
 #include "adc.h"
 #include "i2c.h"
+#include "iwdg.h"
+#include "rtc.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -60,6 +62,8 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 
 	void UartDebug(char* _text) ;
+	void StmSleep(void) 		;
+	void StmStop(void) 			;
 
 /* USER CODE END PFP */
 
@@ -99,6 +103,8 @@ int main(void)
   MX_I2C1_Init();
   MX_USART1_UART_Init();
   MX_ADC1_Init();
+  MX_IWDG_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
 
 	char DataChar[100];
@@ -129,6 +135,12 @@ int main(void)
 	adc1_init_value = (1000 * adc1_init_value) / ADC_COEFFICIENT;
 	sprintf(DataChar, "%lu.%02luV, ", adc1_init_value/100, adc1_init_value%100 ); UartDebug(DataChar) ;
 	sprintf(DataChar,"\r\n"); UartDebug(DataChar) ;
+
+	RTC_TimeTypeDef TimeSt = { 0 } ;
+	HAL_RTC_GetTime(&hrtc, &TimeSt, RTC_FORMAT_BIN);
+	sprintf(DataChar,"RTC Time: %02d:%02d:%02d \r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds );
+	UartDebug(DataChar) ;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -148,6 +160,7 @@ int main(void)
 
 	HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
 	HAL_Delay(1000);
+	HAL_IWDG_Refresh(&hiwdg);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -168,10 +181,11 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL2;
@@ -193,7 +207,8 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_ADC;
+  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
   PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV2;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
@@ -206,6 +221,40 @@ void SystemClock_Config(void)
 void UartDebug(char* _text) {
 #ifdef MY_DEBUG
 	HAL_UART_Transmit(UART_DEBUG, (uint8_t*)_text, strlen(_text), 100);
+#endif
+} //**************************************************************************
+
+void StmSleep(void) {
+#ifdef STOP_PRINT
+	sprintf(DataChar, "sleep.. "); UartDebug(DataChar) ;
+#endif
+	#ifndef MASTER
+		HAL_IWDG_Refresh(&hiwdg);
+	#endif
+    HAL_SuspendTick();
+	HAL_PWR_EnterSLEEPMode(	PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI );	//	Sec in Sec
+	// -> Sleep MODE <- //
+	SystemClock_Config();
+	HAL_ResumeTick();
+#ifdef STOP_PRINT
+	sprintf(DataChar, "^ "); UartDebug(DataChar) ;
+#endif
+} //**************************************************************************
+
+void StmStop(void) {
+#ifdef STOP_PRINT
+	sprintf(DataChar, "Stop mode...\r\n\r\n"); UartDebug(DataChar) ;
+#endif
+#ifndef MASTER
+	HAL_IWDG_Refresh(&hiwdg);
+#endif
+    HAL_SuspendTick();
+	HAL_PWR_EnterSTOPMode(	PWR_LOWPOWERREGULATOR_ON,	PWR_STOPENTRY_WFI  );
+	// -> STOP MODE <- //
+    SystemClock_Config();
+	HAL_ResumeTick();
+#ifdef STOP_PRINT
+	sprintf(DataChar, "WakeUp.\r\n"); UartDebug(DataChar) ;
 #endif
 } //**************************************************************************
 

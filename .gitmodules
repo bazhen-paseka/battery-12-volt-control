@@ -1,0 +1,3 @@
+[submodule "Drivers/oled091-ssd1306-sm"]
+	path = Drivers/oled091-ssd1306-sm
+	url = git@github.com:bazhen-paseka/oled091-ssd1306-sm.git

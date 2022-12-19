@@ -25,6 +25,12 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+	#include "stdio.h"
+	#include <string.h>
+	#include "ssd1306.h"
+	#include "ssd1306_tests.h"
+	#include <stdbool.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -90,12 +96,44 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
+	char DataChar[100];
+	#define SOFT_VERSION 1101
+	int soft_version_arr_int[3];
+	soft_version_arr_int[0] = ((SOFT_VERSION) / 1000) %10 ;
+	soft_version_arr_int[1] = ((SOFT_VERSION) /   10) %100 ;
+	soft_version_arr_int[2] = ((SOFT_VERSION)       ) %10 ;
+
+	sprintf(DataChar,"\r\n\r\n\tBattery 12 Volt control v%d.%02d.%d " ,
+	soft_version_arr_int[0] , soft_version_arr_int[1] , soft_version_arr_int[2] );
+
+	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
+
+	#define DATE_as_int_str 	(__DATE__)
+	#define TIME_as_int_str 	(__TIME__)
+	sprintf(DataChar,"\r\n\tBuild: %s. Time: %s." , DATE_as_int_str , TIME_as_int_str ) ;
+	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
+
+	sprintf(DataChar,"\r\n\tFor debug: UART1-115200/8-N-1\r\n" ) ;
+	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
+	int counter = 0;
+	ssd1306_Init();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	sprintf(DataChar,"%d ", counter++ ) ;
+	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
+	ssd1306_Fill(White);
+	ssd1306_SetCursor(1,15);
+	sprintf(DataChar,"TEST %d", counter ) ;
+	ssd1306_WriteString(DataChar, Font_16x26, Black);
+	ssd1306_UpdateScreen();
+
+	HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
+	HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

@@ -55,6 +55,8 @@
 
 /* USER CODE BEGIN PV */
 
+	uint8_t alarma = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -140,6 +142,7 @@ int main(void)
 	HAL_RTC_GetTime(&hrtc, &TimeSt, RTC_FORMAT_BIN);
 	sprintf(DataChar,"RTC Time: %02d:%02d:%02d \r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds );
 	UartDebug(DataChar) ;
+	alarma = 1 ;
 
   /* USER CODE END 2 */
 
@@ -159,8 +162,24 @@ int main(void)
 	ssd1306_UpdateScreen();
 
 	HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
-	HAL_Delay(1000);
+	HAL_Delay(500);
 	HAL_IWDG_Refresh(&hiwdg);
+
+	if (alarma == 1) {
+		HAL_IWDG_Refresh(&hiwdg);
+		RTC_TimeTypeDef TimeSt = { 0 } ;
+		HAL_RTC_GetTime(&hrtc, &TimeSt, RTC_FORMAT_BIN);
+		sprintf(DataChar,"\r\nRTC  time: %02d:%02d:%02d\r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds ); UartDebug(DataChar) ;
+		RTC_AlarmTypeDef AlarmSt = {0};
+		AlarmSt.Alarm = 0;
+		AlarmSt.AlarmTime.Hours   = TimeSt.Hours 		;
+		AlarmSt.AlarmTime.Minutes = TimeSt.Minutes + 0	;
+		AlarmSt.AlarmTime.Seconds = TimeSt.Seconds + 3	;
+		sprintf(DataChar,"set RTC alarm: %02d:%02d:%02d ",AlarmSt.AlarmTime.Hours, AlarmSt.AlarmTime.Minutes, AlarmSt.AlarmTime.Seconds ); UartDebug(DataChar) ;
+		//HAL_StatusTypeDef alarm_status= HAL_RTC_SetAlarm_IT(&hrtc, &AlarmSt, RTC_FORMAT_BIN);
+		//sprintf(DataChar," (status: %d) \r\n", alarm_status ); UartDebug(DataChar) ;
+		alarma = 0;
+	}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -256,6 +275,20 @@ void StmStop(void) {
 #ifdef STOP_PRINT
 	sprintf(DataChar, "WakeUp.\r\n"); UartDebug(DataChar) ;
 #endif
+} //**************************************************************************
+
+void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc) {
+//	char		_text[40]	= { 0 } ;
+//	sprintf(_text,"\r\n AlarmA: ") ;
+//	HAL_UART_Transmit(&huart1, (uint8_t*)_text, strlen(_text), 100);
+//
+//	RTC_TimeTypeDef TimeSt = { 0 } ;
+//	HAL_RTC_GetTime(hrtc, &TimeSt, RTC_FORMAT_BIN);
+//
+//	sprintf(_text,"%02d:%02d:%02d\r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds );
+//	UartDebug(_text);
+//	alarma = 1;
+//	HAL_IWDG_Refresh(&hiwdg);
 } //**************************************************************************
 
 /* USER CODE END 4 */

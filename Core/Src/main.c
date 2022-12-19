@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
 #include "i2c.h"
 #include "usart.h"
 #include "gpio.h"
@@ -30,6 +31,7 @@
 	#include "ssd1306.h"
 	#include "ssd1306_tests.h"
 	#include <stdbool.h>
+	#include "adc_light_stm32f103_hal_sm.h"
 
 /* USER CODE END Includes */
 
@@ -56,6 +58,8 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
+
+	void UartDebug(char* _text) ;
 
 /* USER CODE END PFP */
 
@@ -94,10 +98,10 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   MX_USART1_UART_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
 	char DataChar[100];
-	#define SOFT_VERSION 1101
 	int soft_version_arr_int[3];
 	soft_version_arr_int[0] = ((SOFT_VERSION) / 1000) %10 ;
 	soft_version_arr_int[1] = ((SOFT_VERSION) /   10) %100 ;
@@ -117,7 +121,14 @@ int main(void)
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
 	int counter = 0;
 	ssd1306_Init();
+	ADC1_Init(&hadc1, ADC_CHANNEL) ;
 
+	uint32_t adc1_init_value;
+	sprintf(DataChar,"ADC for blink: "); UartDebug(DataChar) ;
+	adc1_init_value = ADC1_GetValue( &hadc1, ADC_CHANNEL ) ;
+	adc1_init_value = (1000 * adc1_init_value) / ADC_COEFFICIENT;
+	sprintf(DataChar, "%lu.%02luV, ", adc1_init_value/100, adc1_init_value%100 ); UartDebug(DataChar) ;
+	sprintf(DataChar,"\r\n"); UartDebug(DataChar) ;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -126,10 +137,13 @@ int main(void)
   {
 	sprintf(DataChar,"%d ", counter++ ) ;
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
-	ssd1306_Fill(White);
-	ssd1306_SetCursor(1,15);
-	sprintf(DataChar,"TEST %d", counter ) ;
-	ssd1306_WriteString(DataChar, Font_16x26, Black);
+	ssd1306_Fill(Black);//Black
+	ssd1306_SetCursor(0,2);
+	sprintf(DataChar,"Volt %d", counter ) ;
+	ssd1306_WriteString(DataChar, Font_16x26, White);//White
+	ssd1306_SetCursor(0,35);
+	sprintf(DataChar,"Amp: %d", counter ) ;
+	ssd1306_WriteString(DataChar, Font_16x26, White);//White
 	ssd1306_UpdateScreen();
 
 	HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
@@ -149,6 +163,7 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
@@ -178,9 +193,21 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV2;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /* USER CODE BEGIN 4 */
+
+void UartDebug(char* _text) {
+#ifdef MY_DEBUG
+	HAL_UART_Transmit(UART_DEBUG, (uint8_t*)_text, strlen(_text), 100);
+#endif
+} //**************************************************************************
 
 /* USER CODE END 4 */
 

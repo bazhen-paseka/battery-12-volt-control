@@ -18,7 +18,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
 #include "i2c.h"
+#include "iwdg.h"
+#include "rtc.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -30,6 +33,7 @@
 	#include "ssd1306.h"
 	#include "ssd1306_tests.h"
 	#include <stdbool.h>
+	#include "adc_light_stm32f103_hal_sm.h"
 
 /* USER CODE END Includes */
 
@@ -51,11 +55,17 @@
 
 /* USER CODE BEGIN PV */
 
+	uint8_t alarma = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
+
+	void UartDebug(char* _text) ;
+	void StmSleep(void) 		;
+	void StmStop(void) 			;
 
 /* USER CODE END PFP */
 
@@ -94,10 +104,12 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   MX_USART1_UART_Init();
+  MX_ADC1_Init();
+  MX_IWDG_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
 
 	char DataChar[100];
-	#define SOFT_VERSION 1101
 	int soft_version_arr_int[3];
 	soft_version_arr_int[0] = ((SOFT_VERSION) / 1000) %10 ;
 	soft_version_arr_int[1] = ((SOFT_VERSION) /   10) %100 ;
@@ -117,6 +129,20 @@ int main(void)
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
 	int counter = 0;
 	ssd1306_Init();
+	ADC1_Init(&hadc1, ADC_CHANNEL) ;
+
+	uint32_t adc1_init_value;
+	sprintf(DataChar,"ADC for blink: "); UartDebug(DataChar) ;
+	adc1_init_value = ADC1_GetValue( &hadc1, ADC_CHANNEL ) ;
+	adc1_init_value = (1000 * adc1_init_value) / ADC_COEFFICIENT;
+	sprintf(DataChar, "%lu.%02luV, ", adc1_init_value/100, adc1_init_value%100 ); UartDebug(DataChar) ;
+	sprintf(DataChar,"\r\n"); UartDebug(DataChar) ;
+
+	RTC_TimeTypeDef TimeSt = { 0 } ;
+	HAL_RTC_GetTime(&hrtc, &TimeSt, RTC_FORMAT_BIN);
+	sprintf(DataChar,"RTC Time: %02d:%02d:%02d \r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds );
+	UartDebug(DataChar) ;
+	alarma = 1 ;
 
   /* USER CODE END 2 */
 
@@ -126,14 +152,39 @@ int main(void)
   {
 	sprintf(DataChar,"%d ", counter++ ) ;
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
-	ssd1306_Fill(White);
-	ssd1306_SetCursor(1,15);
+	ssd1306_Fill(Black);
+	ssd1306_SetCursor(0,0);
+	sprintf(DataChar,"Volt %d", counter ) ;
+	ssd1306_WriteString(DataChar, Font_11x18, White); //White
+	ssd1306_SetCursor(0,23);
+	sprintf(DataChar,"Amp: %d", counter ) ;
+	ssd1306_WriteString(DataChar, Font_11x18, White); //White
+
+	ssd1306_SetCursor(0,46 );
 	sprintf(DataChar,"TEST %d", counter ) ;
-	ssd1306_WriteString(DataChar, Font_16x26, Black);
+	ssd1306_WriteString(DataChar, Font_11x18, White); //Font_6x8 Font_16x26 Font_11x18
+
 	ssd1306_UpdateScreen();
 
 	HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
-	HAL_Delay(1000);
+	HAL_Delay(500);
+	HAL_IWDG_Refresh(&hiwdg);
+
+	if (alarma == 1) {
+		HAL_IWDG_Refresh(&hiwdg);
+		RTC_TimeTypeDef TimeSt = { 0 } ;
+		HAL_RTC_GetTime(&hrtc, &TimeSt, RTC_FORMAT_BIN);
+		//sprintf(DataChar,"RTC  time: %02d:%02d:%02d\r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds ); UartDebug(DataChar) ;
+		RTC_AlarmTypeDef AlarmSt = {0};
+		AlarmSt.Alarm = 0;
+		AlarmSt.AlarmTime.Hours   = TimeSt.Hours 		;
+		AlarmSt.AlarmTime.Minutes = TimeSt.Minutes + 0	;
+		AlarmSt.AlarmTime.Seconds = TimeSt.Seconds + 5	;
+		sprintf(DataChar,"set alarm: %02d:%02d:%02d ",AlarmSt.AlarmTime.Hours, AlarmSt.AlarmTime.Minutes, AlarmSt.AlarmTime.Seconds ); UartDebug(DataChar) ;
+		HAL_StatusTypeDef alarm_status= HAL_RTC_SetAlarm_IT(&hrtc, &AlarmSt, RTC_FORMAT_BIN);
+		sprintf(DataChar," (status: %d) \r\n", alarm_status ); UartDebug(DataChar) ;
+		alarma = 0;
+	}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -149,14 +200,16 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL2;
@@ -178,9 +231,69 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_ADC;
+  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
+  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV2;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /* USER CODE BEGIN 4 */
+
+void UartDebug(char* _text) {
+#ifdef MY_DEBUG
+	HAL_UART_Transmit(UART_DEBUG, (uint8_t*)_text, strlen(_text), 100);
+#endif
+} //**************************************************************************
+
+void StmSleep(void) {
+#ifdef STOP_PRINT
+	sprintf(DataChar, "sleep.. "); UartDebug(DataChar) ;
+#endif
+	#ifndef MASTER
+		HAL_IWDG_Refresh(&hiwdg);
+	#endif
+    HAL_SuspendTick();
+	HAL_PWR_EnterSLEEPMode(	PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI );	//	Sec in Sec
+	// -> Sleep MODE <- //
+	SystemClock_Config();
+	HAL_ResumeTick();
+#ifdef STOP_PRINT
+	sprintf(DataChar, "^ "); UartDebug(DataChar) ;
+#endif
+} //**************************************************************************
+
+void StmStop(void) {
+#ifdef STOP_PRINT
+	sprintf(DataChar, "Stop mode...\r\n\r\n"); UartDebug(DataChar) ;
+#endif
+#ifndef MASTER
+	HAL_IWDG_Refresh(&hiwdg);
+#endif
+    HAL_SuspendTick();
+	HAL_PWR_EnterSTOPMode(	PWR_LOWPOWERREGULATOR_ON,	PWR_STOPENTRY_WFI  );
+	// -> STOP MODE <- //
+    SystemClock_Config();
+	HAL_ResumeTick();
+#ifdef STOP_PRINT
+	sprintf(DataChar, "WakeUp.\r\n"); UartDebug(DataChar) ;
+#endif
+} //**************************************************************************
+
+void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc) {
+	char		_text[40]	= { 0 } ;
+	sprintf(_text," AlarmA: ") ;
+	HAL_UART_Transmit(&huart1, (uint8_t*)_text, strlen(_text), 100);
+
+	RTC_TimeTypeDef TimeSt = { 0 } ;
+	HAL_RTC_GetTime(hrtc, &TimeSt, RTC_FORMAT_BIN);
+
+	sprintf(_text,"%02d:%02d:%02d\r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds );
+	UartDebug(_text);
+	alarma = 1;
+} //**************************************************************************
 
 /* USER CODE END 4 */
 

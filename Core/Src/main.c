@@ -152,13 +152,18 @@ int main(void)
   {
 	sprintf(DataChar,"%d ", counter++ ) ;
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
-	ssd1306_Fill(Black);//Black
-	ssd1306_SetCursor(0,2);
+	ssd1306_Fill(Black);
+	ssd1306_SetCursor(0,0);
 	sprintf(DataChar,"Volt %d", counter ) ;
-	ssd1306_WriteString(DataChar, Font_16x26, White);//White
-	ssd1306_SetCursor(0,35);
+	ssd1306_WriteString(DataChar, Font_11x18, White); //White
+	ssd1306_SetCursor(0,23);
 	sprintf(DataChar,"Amp: %d", counter ) ;
-	ssd1306_WriteString(DataChar, Font_16x26, White);//White
+	ssd1306_WriteString(DataChar, Font_11x18, White); //White
+
+	ssd1306_SetCursor(0,46 );
+	sprintf(DataChar,"TEST %d", counter ) ;
+	ssd1306_WriteString(DataChar, Font_11x18, White); //Font_6x8 Font_16x26 Font_11x18
+
 	ssd1306_UpdateScreen();
 
 	HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
@@ -169,15 +174,15 @@ int main(void)
 		HAL_IWDG_Refresh(&hiwdg);
 		RTC_TimeTypeDef TimeSt = { 0 } ;
 		HAL_RTC_GetTime(&hrtc, &TimeSt, RTC_FORMAT_BIN);
-		sprintf(DataChar,"\r\nRTC  time: %02d:%02d:%02d\r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds ); UartDebug(DataChar) ;
+		//sprintf(DataChar,"RTC  time: %02d:%02d:%02d\r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds ); UartDebug(DataChar) ;
 		RTC_AlarmTypeDef AlarmSt = {0};
 		AlarmSt.Alarm = 0;
 		AlarmSt.AlarmTime.Hours   = TimeSt.Hours 		;
 		AlarmSt.AlarmTime.Minutes = TimeSt.Minutes + 0	;
-		AlarmSt.AlarmTime.Seconds = TimeSt.Seconds + 3	;
-		sprintf(DataChar,"set RTC alarm: %02d:%02d:%02d ",AlarmSt.AlarmTime.Hours, AlarmSt.AlarmTime.Minutes, AlarmSt.AlarmTime.Seconds ); UartDebug(DataChar) ;
-		//HAL_StatusTypeDef alarm_status= HAL_RTC_SetAlarm_IT(&hrtc, &AlarmSt, RTC_FORMAT_BIN);
-		//sprintf(DataChar," (status: %d) \r\n", alarm_status ); UartDebug(DataChar) ;
+		AlarmSt.AlarmTime.Seconds = TimeSt.Seconds + 5	;
+		sprintf(DataChar,"set alarm: %02d:%02d:%02d ",AlarmSt.AlarmTime.Hours, AlarmSt.AlarmTime.Minutes, AlarmSt.AlarmTime.Seconds ); UartDebug(DataChar) ;
+		HAL_StatusTypeDef alarm_status= HAL_RTC_SetAlarm_IT(&hrtc, &AlarmSt, RTC_FORMAT_BIN);
+		sprintf(DataChar," (status: %d) \r\n", alarm_status ); UartDebug(DataChar) ;
 		alarma = 0;
 	}
     /* USER CODE END WHILE */
@@ -278,17 +283,16 @@ void StmStop(void) {
 } //**************************************************************************
 
 void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc) {
-//	char		_text[40]	= { 0 } ;
-//	sprintf(_text,"\r\n AlarmA: ") ;
-//	HAL_UART_Transmit(&huart1, (uint8_t*)_text, strlen(_text), 100);
-//
-//	RTC_TimeTypeDef TimeSt = { 0 } ;
-//	HAL_RTC_GetTime(hrtc, &TimeSt, RTC_FORMAT_BIN);
-//
-//	sprintf(_text,"%02d:%02d:%02d\r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds );
-//	UartDebug(_text);
-//	alarma = 1;
-//	HAL_IWDG_Refresh(&hiwdg);
+	char		_text[40]	= { 0 } ;
+	sprintf(_text," AlarmA: ") ;
+	HAL_UART_Transmit(&huart1, (uint8_t*)_text, strlen(_text), 100);
+
+	RTC_TimeTypeDef TimeSt = { 0 } ;
+	HAL_RTC_GetTime(hrtc, &TimeSt, RTC_FORMAT_BIN);
+
+	sprintf(_text,"%02d:%02d:%02d\r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds );
+	UartDebug(_text);
+	alarma = 1;
 } //**************************************************************************
 
 /* USER CODE END 4 */

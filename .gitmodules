@@ -1,6 +1,3 @@
-[submodule "Drivers/oled091-ssd1306-sm"]
-	path = Drivers/oled091-ssd1306-sm
-	url = git@github.com:bazhen-paseka/oled091-ssd1306-sm.git
 [submodule "Drivers/adc_light_stm32f103_hal_sm"]
 	path = Drivers/adc_light_stm32f103_hal_sm
 	url = git@github.com:bazhen-paseka/adc_light_stm32f103_hal_sm.git

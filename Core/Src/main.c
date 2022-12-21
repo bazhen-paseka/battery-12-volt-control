@@ -32,6 +32,7 @@
 	#include <string.h>
 	#include "adc_light_stm32f103_hal_sm.h"
 	#include "lcd1602_fc113_sm.h"
+	#include "LCD1602.h"
 
 /* USER CODE END Includes */
 
@@ -163,6 +164,9 @@ int main(void)
 	HAL_IWDG_Refresh(&hiwdg);
 	HAL_Delay(1000);
 	LCD1602_Clear(&hlcd1602);
+
+//	LCD_Init();
+//	LCD_PrintString(DataChar);
 
   /* USER CODE END 2 */
 

@@ -134,8 +134,7 @@ int main(void)
 	sprintf(DataChar,"ADC for blink: "); UartDebug(DataChar) ;
 	adc1_init_value = ADC1_GetValue( &hadc1, ADC_CHANNEL ) ;
 	adc1_init_value = (1000 * adc1_init_value) / ADC_COEFFICIENT;
-	sprintf(DataChar, "%lu.%02luV, ", adc1_init_value/100, adc1_init_value%100 ); UartDebug(DataChar) ;
-	sprintf(DataChar,"\r\n"); UartDebug(DataChar) ;
+	sprintf(DataChar, "%lu.%02luV \r\n", adc1_init_value/100, adc1_init_value%100 ); UartDebug(DataChar) ;
 
 	RTC_TimeTypeDef TimeSt = { 0 } ;
 	HAL_RTC_GetTime(&hrtc, &TimeSt, RTC_FORMAT_BIN);
@@ -176,11 +175,18 @@ int main(void)
   {
 	sprintf(DataChar,"%d ", counter++ ) ;
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
-	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
+	//LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 
 	HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
 	HAL_Delay(500);
 	HAL_IWDG_Refresh(&hiwdg);
+
+	uint32_t adc1_value = ADC1_GetValue( &hadc1, ADC_CHANNEL ) ;
+	//adc1_value = (1000 * adc1_value) / ADC_COEFFICIENT;
+	//sprintf(DataChar, "%lu.%02luV \r\n", adc1_value/100, adc1_value%100 ); UartDebug(DataChar) ;
+	sprintf(DataChar, "%02lumA\r\n", adc1_value-2730 ); UartDebug(DataChar) ;
+	LCD1602cursorToFirstPosition(&hlcd1602, LED_ON);
+	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 
 	if (alarma == 1) {
 		HAL_IWDG_Refresh(&hiwdg);

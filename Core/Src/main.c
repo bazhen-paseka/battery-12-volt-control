@@ -30,10 +30,8 @@
 
 	#include "stdio.h"
 	#include <string.h>
-	#include "ssd1306.h"
-	#include "ssd1306_tests.h"
-	#include <stdbool.h>
 	#include "adc_light_stm32f103_hal_sm.h"
+	#include "lcd1602_fc113_sm.h"
 
 /* USER CODE END Includes */
 
@@ -128,7 +126,7 @@ int main(void)
 	sprintf(DataChar,"\r\n\tFor debug: UART1-115200/8-N-1\r\n" ) ;
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
 	int counter = 0;
-	ssd1306_Init();
+
 	ADC1_Init(&hadc1, ADC_CHANNEL) ;
 
 	uint32_t adc1_init_value;
@@ -144,6 +142,28 @@ int main(void)
 	UartDebug(DataChar) ;
 	alarma = 1 ;
 
+	lcd1602_handle hlcd1602 =
+		{
+			.i2c = &hi2c1,
+			.device_i2c_address = ADR_I2C_FC113
+		};
+
+	LCD1602_Init(&hlcd1602);
+	LCD1602_Scan_I2C_bus(&hlcd1602);
+	HAL_IWDG_Refresh(&hiwdg);
+	LCD1602_Scan_I2C_to_UART(&hi2c1, &huart1);
+	LCD1602_Init(&hlcd1602);
+
+	LCD1602_Clear(&hlcd1602);
+	sprintf(DataChar,"Steps Counter\r\n");
+	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
+
+	sprintf(DataChar," STP100M\r\n");
+	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
+	HAL_IWDG_Refresh(&hiwdg);
+	HAL_Delay(1000);
+	LCD1602_Clear(&hlcd1602);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -152,19 +172,7 @@ int main(void)
   {
 	sprintf(DataChar,"%d ", counter++ ) ;
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
-	ssd1306_Fill(Black);
-	ssd1306_SetCursor(0,0);
-	sprintf(DataChar,"Volt %d", counter ) ;
-	ssd1306_WriteString(DataChar, Font_11x18, White); //White
-	ssd1306_SetCursor(0,23);
-	sprintf(DataChar,"Amp: %d", counter ) ;
-	ssd1306_WriteString(DataChar, Font_11x18, White); //White
-
-	ssd1306_SetCursor(0,46 );
-	sprintf(DataChar,"TEST %d", counter ) ;
-	ssd1306_WriteString(DataChar, Font_11x18, White); //Font_6x8 Font_16x26 Font_11x18
-
-	ssd1306_UpdateScreen();
+	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 
 	HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
 	HAL_Delay(500);

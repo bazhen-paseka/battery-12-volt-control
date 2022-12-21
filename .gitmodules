@@ -1,3 +1,6 @@
 [submodule "Drivers/adc_light_stm32f103_hal_sm"]
 	path = Drivers/adc_light_stm32f103_hal_sm
 	url = git@github.com:bazhen-paseka/adc_light_stm32f103_hal_sm.git
+[submodule "Drivers/lcd1602_fc113_sm"]
+	path = Drivers/lcd1602_fc113_sm
+	url = git@github.com:bazhen-paseka/lcd1602_fc113_sm.git

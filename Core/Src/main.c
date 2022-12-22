@@ -128,12 +128,13 @@ int main(void)
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
 	int counter = 0;
 
-	ADC1_Init(&hadc1, ADC_CHANNEL) ;
+	ADC1_Init(&hadc1, AMPER_CHANNEL);
+	ADC1_Init(&hadc1, VOLT_CHANNEL);
 
 	uint32_t adc1_init_value;
 	sprintf(DataChar,"ADC for blink: "); UartDebug(DataChar) ;
-	adc1_init_value = ADC1_GetValue( &hadc1, ADC_CHANNEL ) ;
-	adc1_init_value = (1000 * adc1_init_value) / ADC_COEFFICIENT;
+	adc1_init_value = ADC1_GetValue( &hadc1, VOLT_CHANNEL ) ;
+	adc1_init_value = (1000 * adc1_init_value) / VOLT_COEFFICIENT;
 	sprintf(DataChar, "%lu.%02luV \r\n", adc1_init_value/100, adc1_init_value%100 ); UartDebug(DataChar) ;
 
 	RTC_TimeTypeDef TimeSt = { 0 } ;
@@ -155,10 +156,10 @@ int main(void)
 	LCD1602_Init(&hlcd1602);
 
 	LCD1602_Clear(&hlcd1602);
-	sprintf(DataChar,"Steps Counter\r\n");
+	sprintf(DataChar,"Volt control\r\n");
 	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 
-	sprintf(DataChar," STP100M\r\n");
+	sprintf(DataChar," Battery 12V\r\n");
 	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 	HAL_IWDG_Refresh(&hiwdg);
 	HAL_Delay(1000);
@@ -181,11 +182,15 @@ int main(void)
 	HAL_Delay(500);
 	HAL_IWDG_Refresh(&hiwdg);
 
-	uint32_t adc1_value = ADC1_GetValue( &hadc1, ADC_CHANNEL ) ;
-	//adc1_value = (1000 * adc1_value) / ADC_COEFFICIENT;
-	//sprintf(DataChar, "%lu.%02luV \r\n", adc1_value/100, adc1_value%100 ); UartDebug(DataChar) ;
-	sprintf(DataChar, "%02lumA\r\n", adc1_value-2730 ); UartDebug(DataChar) ;
+
+	uint32_t adc1_value = ADC1_GetValue( &hadc1, AMPER_CHANNEL ) ;
+	adc1_value = 1000 * adc1_value / VOLT_COEFFICIENT;
+	sprintf(DataChar, "%lu.%02luV ", adc1_value/100, adc1_value%100 ); UartDebug(DataChar) ;
 	LCD1602cursorToFirstPosition(&hlcd1602, LED_ON);
+	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
+
+	uint32_t adc2_value = ADC1_GetValue( &hadc1, VOLT_CHANNEL ) ;
+	sprintf(DataChar, "%04luA", adc2_value ); UartDebug(DataChar) ;
 	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 
 	if (alarma == 1) {

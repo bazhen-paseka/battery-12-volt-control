@@ -172,7 +172,7 @@ int main(void)
 	sprintf(DataChar,"\r\n%d) ", counter++ ) ;
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
 
-	HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
+	//HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
 	HAL_Delay(1000);
 	HAL_IWDG_Refresh(&hiwdg);
 
@@ -183,9 +183,26 @@ int main(void)
 	LCD1602cursorToFirstPosition(&hlcd1602, LED_ON);
 	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 
-	sprintf(DataChar, "%03luA ", adc1_value[1]-3000 ); UartDebug(DataChar) ;
+	uint32_t current_u32;
+	#define CURRENT_LEVEL 3020
+	#define CURRENT_DELTA    5
+
+	if (adc1_value[1] < CURRENT_LEVEL - CURRENT_DELTA) {
+		current_u32 = 10 * (CURRENT_LEVEL - adc1_value[1]) ;
+	}
+	if (adc1_value[1] > CURRENT_LEVEL + CURRENT_DELTA) {
+		current_u32 = 10 * (adc1_value[1] - CURRENT_LEVEL) ;
+	}
+
+	if (	(adc1_value[1] > CURRENT_LEVEL - CURRENT_DELTA)
+		&&	(adc1_value[1] < CURRENT_LEVEL + CURRENT_DELTA)) {
+		current_u32 = 0 ;
+	}
+
+	sprintf(DataChar, "%03lumA ", current_u32 ); UartDebug(DataChar) ;
 	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 
+	sprintf(DataChar, "%04lu mA ", adc1_value[1] ); UartDebug(DataChar) ;
 	#define TEMP_COEF 10000LU
 
 	uint32_t v25_u32 = 14300;
@@ -205,11 +222,13 @@ int main(void)
 		AlarmSt.Alarm = 0;
 		AlarmSt.AlarmTime.Hours   = TimeSt.Hours 		;
 		AlarmSt.AlarmTime.Minutes = TimeSt.Minutes + 0	;
-		AlarmSt.AlarmTime.Seconds = TimeSt.Seconds + 5	;
+		AlarmSt.AlarmTime.Seconds = TimeSt.Seconds + 3	;
 		sprintf(DataChar,"set alarm: %02d:%02d:%02d ",AlarmSt.AlarmTime.Hours, AlarmSt.AlarmTime.Minutes, AlarmSt.AlarmTime.Seconds ); UartDebug(DataChar) ;
 		HAL_StatusTypeDef alarm_status= HAL_RTC_SetAlarm_IT(&hrtc, &AlarmSt, RTC_FORMAT_BIN);
 		sprintf(DataChar," (status: %d) \r\n", alarm_status ); UartDebug(DataChar) ;
 		alarma = 0;
+		HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
+		HAL_GPIO_TogglePin(POWER_KEY_GPIO_Port,POWER_KEY_Pin);
 	}
     /* USER CODE END WHILE */
 

@@ -23,7 +23,7 @@
 *								    DEFINES                     
 **************************************************************************
 */
-	#define 	SOFT_VERSION 		100
+	#define 	SOFT_VERSION 		120
 
 	#define		BOARD_LED
 	#define		ADC_EN

@@ -55,8 +55,15 @@
 
 /* USER CODE BEGIN PV */
 
-	uint8_t 	alarma = 0;
-	uint32_t 	adc1_value[4];
+	uint8_t 	alarma = 0			;
+	uint8_t		time_to_print 	= 0	;
+	uint32_t 	adc1_value[4]		;
+	int 		counter = 0			;
+	char 		DataChar[0xFF]		;
+	lcd1602_handle 		hlcd1602 = 	{
+		.i2c = &hi2c1,
+		.device_i2c_address = ADR_I2C_FC113
+	};
 
 /* USER CODE END PV */
 
@@ -64,11 +71,13 @@
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 
-	void UartDebug	(char* _text) ;
-	void StmSleep	(void) ;
-	void StmStop	(void) ;
-	void LedOff 	(void) ;
+	void UartDebug	(char* _text)	;
+	void StmSleep	(void) 			;
+	void StmStop	(void) 			;
+	void LedOff 	(void) 			;
 	void LedOn 		(lcd1602_handle* _hlcd1602) ;
+	void SetAlarm	(void)			;
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -112,57 +121,24 @@ int main(void)
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
 
-	char DataChar[100];
 	int soft_version_arr_int[3];
-	soft_version_arr_int[0] = ((SOFT_VERSION) / 1000) %10 ;
-	soft_version_arr_int[1] = ((SOFT_VERSION) /   10) %100 ;
+	soft_version_arr_int[0] = ((SOFT_VERSION) / 100) ;
+	soft_version_arr_int[1] = ((SOFT_VERSION) /   10) %10 ;
 	soft_version_arr_int[2] = ((SOFT_VERSION)       ) %10 ;
 
-	sprintf(DataChar,"\r\n\r\n\tBattery 12 Volt control v%d.%02d.%d " ,
-	soft_version_arr_int[0] , soft_version_arr_int[1] , soft_version_arr_int[2] );
+	sprintf(DataChar,"\r\n\r\n\tBattery 12 Volt control v%d.%d.%d " ,
+			soft_version_arr_int[0] , soft_version_arr_int[1] , soft_version_arr_int[2] );
+	UartDebug(DataChar);
 
-	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
+	#define 	DATE_as_int_str 	(__DATE__)
+	#define 	TIME_as_int_str 	(__TIME__)
+	sprintf(DataChar,"\r\n\tBuild: %s. Time: %s.\r\n" , DATE_as_int_str , TIME_as_int_str ) ;
+	UartDebug(DataChar);
 
-	#define DATE_as_int_str 	(__DATE__)
-	#define TIME_as_int_str 	(__TIME__)
-	sprintf(DataChar,"\r\n\tBuild: %s. Time: %s." , DATE_as_int_str , TIME_as_int_str ) ;
-	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
-
-	sprintf(DataChar,"\r\n\tFor debug: UART1-115200/8-N-1\r\n" ) ;
-	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
-	int counter = 0;
-
-	RTC_TimeTypeDef TimeSt = { 0 } ;
-	HAL_RTC_GetTime(&hrtc, &TimeSt, RTC_FORMAT_BIN);
-	sprintf(DataChar,"RTC Time: %02d:%02d:%02d \r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds );
-	UartDebug(DataChar) ;
-	alarma = 1 ;
-
-	lcd1602_handle hlcd1602 = {
-		.i2c = &hi2c1,
-		.device_i2c_address = ADR_I2C_FC113
-	};
-
-	LCD1602_Init(&hlcd1602);
-	LCD1602_Scan_I2C_bus(&hlcd1602);
+	HAL_Delay(300);
 	HAL_IWDG_Refresh(&hiwdg);
-	LCD1602_Scan_I2C_to_UART(&hi2c1, &huart1);
-	LCD1602_Init(&hlcd1602);
-
-	LCD1602_Clear(&hlcd1602);
-	sprintf(DataChar,"Volt control\r\n"); UartDebug(DataChar) ;
-	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
-
-	sprintf(DataChar," Battery 12V\r\n"); UartDebug(DataChar) ;
-	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
-	HAL_IWDG_Refresh(&hiwdg);
-	HAL_Delay(100);
-	LCD1602_Clear(&hlcd1602);
-
 	HAL_ADC_Start_DMA(&hadc1, adc1_value, 4);
-
-//	LCD_Init();
-//	LCD_PrintString(DataChar);
+	alarma = 1 ;
 
   /* USER CODE END 2 */
 
@@ -170,67 +146,61 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	sprintf(DataChar,"\r\n%d) ", counter++ ) ;
-	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
-
-	//HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
-	HAL_Delay(2000);
-	HAL_IWDG_Refresh(&hiwdg);
-	LedOn(&hlcd1602);
-	adc1_value[0] = 1000 * adc1_value[0] / VOLT_COEFFICIENT;
-	sprintf(DataChar, "%lu.%02luV ", adc1_value[0]/100, adc1_value[0]%100 ); UartDebug(DataChar) ;
-
-	//sprintf(DataChar, "%04luV ", adc1_value[0] ); UartDebug(DataChar) ;
-	LCD1602cursorToFirstPosition(&hlcd1602, LED_ON);
-	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
-
-	uint32_t current_u32;
-	#define CURRENT_LEVEL 3020
-	#define CURRENT_DELTA    5
-
-	if (adc1_value[1] < CURRENT_LEVEL - CURRENT_DELTA) {
-		current_u32 = 10 * (CURRENT_LEVEL - adc1_value[1]) ;
-	}
-	if (adc1_value[1] > CURRENT_LEVEL + CURRENT_DELTA) {
-		current_u32 = 10 * (adc1_value[1] - CURRENT_LEVEL) ;
-	}
-
-	if (	(adc1_value[1] > CURRENT_LEVEL - CURRENT_DELTA)
-		&&	(adc1_value[1] < CURRENT_LEVEL + CURRENT_DELTA)) {
-		current_u32 = 0 ;
-	}
-
-	sprintf(DataChar, "%03lumA ", current_u32 ); UartDebug(DataChar) ;
-	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
-
-	sprintf(DataChar, "%04lu mA ", adc1_value[1] ); UartDebug(DataChar) ;
-	#define TEMP_COEF 10000LU
-
-	uint32_t v25_u32 = 14300;
-	uint32_t avg_slope_u32 = 43;
-	uint32_t vsense_u32 = 1000 * 33 / 4096;
-
-	vsense_u32 = 33 * 1000 * adc1_value[2] / 4096;
-	uint32_t temp_u32 = (((v25_u32 - vsense_u32) / avg_slope_u32) + 25 );
-	sprintf(DataChar, "temp: %luC ", temp_u32 ); UartDebug(DataChar) ;
-	sprintf(DataChar, "Vref: %luV ", 3300*adc1_value[3]/4096 ); UartDebug(DataChar) ;
 	if (alarma == 1) {
 		HAL_IWDG_Refresh(&hiwdg);
-		RTC_TimeTypeDef TimeSt = { 0 } ;
-		HAL_RTC_GetTime(&hrtc, &TimeSt, RTC_FORMAT_BIN);
-		//sprintf(DataChar,"RTC  time: %02d:%02d:%02d\r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds ); UartDebug(DataChar) ;
-		RTC_AlarmTypeDef AlarmSt = {0};
-		AlarmSt.Alarm = 0;
-		AlarmSt.AlarmTime.Hours   = TimeSt.Hours 		;
-		AlarmSt.AlarmTime.Minutes = TimeSt.Minutes + 0	;
-		AlarmSt.AlarmTime.Seconds = TimeSt.Seconds + 7	;
-		sprintf(DataChar,"set alarm: %02d:%02d:%02d ",AlarmSt.AlarmTime.Hours, AlarmSt.AlarmTime.Minutes, AlarmSt.AlarmTime.Seconds ); UartDebug(DataChar) ;
-		HAL_StatusTypeDef alarm_status= HAL_RTC_SetAlarm_IT(&hrtc, &AlarmSt, RTC_FORMAT_BIN);
-		sprintf(DataChar," (status: %d) \r\n", alarm_status ); UartDebug(DataChar) ;
+		counter++;
+		sprintf(DataChar,"%d", counter ); UartDebug(DataChar);
+		if (counter == 4) { LedOff(); }
+		if (counter >= 10 ) { time_to_print = 1; }
+		SetAlarm();
 		alarma = 0;
-//		HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
-//		HAL_GPIO_TogglePin(POWER_KEY_GPIO_Port,POWER_KEY_Pin);
 	}
+
+	if (time_to_print == 1 ) {
+		LedOn(&hlcd1602);
+		uint32_t voltage_u32 = 1000 * adc1_value[0] / VOLT_COEFFICIENT;
+		uint32_t current_u32 = 0 ;
+		#define CURRENT_LEVEL 3020
+		#define CURRENT_DELTA    5
+		if (adc1_value[1] < CURRENT_LEVEL - CURRENT_DELTA) {
+			current_u32 = 10 * (CURRENT_LEVEL - adc1_value[1]) ;
+		}
+		if (adc1_value[1] > CURRENT_LEVEL + CURRENT_DELTA) {
+			current_u32 = 10 * (adc1_value[1] - CURRENT_LEVEL) ;
+		}
+		if (	(adc1_value[1] > CURRENT_LEVEL - CURRENT_DELTA)
+			&&	(adc1_value[1] < CURRENT_LEVEL + CURRENT_DELTA)) {
+			current_u32 = 0 ;
+		}
+
+		uint32_t v25_u32 = 14300;
+		uint32_t avg_slope_u32 = 43;
+		uint32_t vsense_u32 = 1000 * 33 / 4096;
+		vsense_u32 = 33 * 1000 * adc1_value[2] / 4096;
+		uint32_t temp_u32 = (((v25_u32 - vsense_u32) / avg_slope_u32) + 25 );
+		uint32_t vref_u32 = 3300*adc1_value[3]/4096;
+
+		sprintf(DataChar, "\t%lu.%02luV   %03lumA (%04lu)   temp: %luC   Vref: %luV\r\n",
+				voltage_u32/100, voltage_u32%100,
+				current_u32						,
+				adc1_value[1]					,
+				temp_u32						,
+				vref_u32 						);
+		UartDebug(DataChar);
+
+		sprintf(DataChar, " %lu.%02luV   %03lumA Vref %lu  %luC",
+				voltage_u32/100, voltage_u32%100,
+				current_u32						,
+				vref_u32						,
+				temp_u32 						);
+		LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
+		counter = 0;
+		SetAlarm();
+		time_to_print = 0;
+	}
+
+	StmStop();
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -295,21 +265,19 @@ void UartDebug(char* _text) {
 } //**************************************************************************
 
 void LedOn (lcd1602_handle* _hlcd1602){
-	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(POWER_KEY_GPIO_Port,POWER_KEY_Pin,GPIO_PIN_SET);
-	HAL_Delay(100);
 	LCD1602_Init(_hlcd1602);
-}
+} //**************************************************************************
 
 void LedOff (void){
-	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(POWER_KEY_GPIO_Port,POWER_KEY_Pin,GPIO_PIN_RESET);
-}
+} //**************************************************************************
+
 void StmSleep(void) {
-#ifdef STOP_PRINT
-	sprintf(DataChar, "sleep.. "); UartDebug(DataChar) ;
-#endif
-	#ifndef MASTER
+	#ifndef STOP_PRINT
+		sprintf(DataChar, "sleep.. "); UartDebug(DataChar) ;
+	#endif
+	#ifdef LOCAL_IWDG
 		HAL_IWDG_Refresh(&hiwdg);
 	#endif
     HAL_SuspendTick();
@@ -317,41 +285,44 @@ void StmSleep(void) {
 	// -> Sleep MODE <- //
 	SystemClock_Config();
 	HAL_ResumeTick();
-#ifdef STOP_PRINT
-	sprintf(DataChar, "^ "); UartDebug(DataChar) ;
-#endif
+	#ifndef STOP_PRINT
+		sprintf(DataChar, "^ "); UartDebug(DataChar) ;
+	#endif
 } //**************************************************************************
 
 void StmStop(void) {
-#ifdef STOP_PRINT
-	sprintf(DataChar, "Stop mode...\r\n\r\n"); UartDebug(DataChar) ;
-#endif
-#ifndef MASTER
-	HAL_IWDG_Refresh(&hiwdg);
-#endif
+	#ifndef STOP_PRINT
+		sprintf(DataChar, " Stop... "); UartDebug(DataChar) ;
+	#endif
+	#ifdef LOCAL_IWDG
+		HAL_IWDG_Refresh(&hiwdg);
+	#endif
     HAL_SuspendTick();
 	HAL_PWR_EnterSTOPMode(	PWR_LOWPOWERREGULATOR_ON,	PWR_STOPENTRY_WFI  );
 	// -> STOP MODE <- //
     SystemClock_Config();
 	HAL_ResumeTick();
-#ifdef STOP_PRINT
-	sprintf(DataChar, "WakeUp.\r\n"); UartDebug(DataChar) ;
-#endif
+	#ifndef STOP_PRINT
+		sprintf(DataChar, "^ "); UartDebug(DataChar) ;
+	#endif
 } //**************************************************************************
 
 void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc) {
-	char		_text[40]	= { 0 } ;
-	sprintf(_text," AlarmA: ") ;
-	HAL_UART_Transmit(&huart1, (uint8_t*)_text, strlen(_text), 100);
-
-	RTC_TimeTypeDef TimeSt = { 0 } ;
-	HAL_RTC_GetTime(hrtc, &TimeSt, RTC_FORMAT_BIN);
-
-	sprintf(_text,"%02d:%02d:%02d\r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds );
-	UartDebug(_text);
-	LedOff();
 	alarma = 1;
 } //**************************************************************************
+
+void SetAlarm (void) {
+	RTC_TimeTypeDef TimeSt = { 0 } ;
+	HAL_RTC_GetTime(&hrtc, &TimeSt, RTC_FORMAT_BIN);
+	RTC_AlarmTypeDef AlarmSt = {0};
+	AlarmSt.Alarm 				= 0					;
+	AlarmSt.AlarmTime.Hours   	= TimeSt.Hours		;
+	AlarmSt.AlarmTime.Minutes 	= TimeSt.Minutes	;
+	AlarmSt.AlarmTime.Seconds 	= TimeSt.Seconds 	;
+	HAL_RTC_SetAlarm_IT(&hrtc, &AlarmSt, RTC_FORMAT_BIN);
+} //**************************************************************************
+
+//**************************************************************************
 
 /* USER CODE END 4 */
 

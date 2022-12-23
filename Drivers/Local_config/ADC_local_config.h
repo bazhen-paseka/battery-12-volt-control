@@ -12,8 +12,8 @@
 
 #ifdef ADC_EN
 	#define 	ADC_MODULE
-	#define 	VOLT_CHANNEL		ADC_CHANNEL_1
-	#define 	AMPER_CHANNEL		ADC_CHANNEL_2
+	//#define 	VOLT_CHANNEL		ADC_CHANNEL_1
+	//#define 	AMPER_CHANNEL		ADC_CHANNEL_2
 	#define		VOLT_COEFFICIENT	2285
 #endif
 

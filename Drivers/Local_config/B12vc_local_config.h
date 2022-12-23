@@ -23,13 +23,12 @@
 *								    DEFINES                     
 **************************************************************************
 */
-	#define 	SOFT_VERSION 		1101
-
+	#define 	SOFT_VERSION 		100
 
 	#define		BOARD_LED
 	#define		ADC_EN
 
-
+	#define		STOP_PRINT
 	#define		MY_DEBUG
 #ifdef MY_DEBUG
 	#define 	UART_DEBUG 			&huart1

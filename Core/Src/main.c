@@ -55,11 +55,17 @@
 
 /* USER CODE BEGIN PV */
 
-	uint8_t 	alarma = 0			;
+	char 		DataChar[0xFF] = {0};
+	int 		counter 		= 0	;
+	uint8_t 	alarma 			= 0	;
 	uint8_t		time_to_print 	= 0	;
-	uint32_t 	adc1_value[4]		;
-	int 		counter = 0			;
-	char 		DataChar[0xFF]		;
+
+	uint8_t 	button_info		= 0 ;
+	uint8_t 	button_start	= 0 ;
+	uint8_t 	button_stop		= 0 ;
+
+	uint32_t 	adc1_value[4] = {0}	;
+
 	lcd1602_handle 		hlcd1602 = 	{
 		.i2c = &hi2c1,
 		.device_i2c_address = ADR_I2C_FC113
@@ -146,12 +152,42 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+		if ( button_info == 1) {
+			LedOn(&hlcd1602);
+			sprintf(DataChar,"\tButton: Info \r\n" ); UartDebug(DataChar);
+			sprintf(DataChar,"Button: Info" );
+			LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
+			counter 	= 0;
+			button_info = 0;
+			SetAlarm();
+		}
+
+		if (button_start == 1) {
+			LedOn(&hlcd1602);
+			sprintf(DataChar,"\tButton: Start \r\n" ); UartDebug(DataChar);
+			sprintf(DataChar,"Button: Start" );
+			LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
+			counter 	= 0;
+			button_start= 0;
+			SetAlarm();
+		}
+
+		if ( button_stop == 1) {
+			LedOn(&hlcd1602);
+			sprintf(DataChar,"\tButton: Stop \r\n" ); UartDebug(DataChar);
+			sprintf(DataChar,"Button: Stop" );
+			LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
+			counter 	= 0;
+			button_stop = 0;
+			SetAlarm();
+		}
+
 	if (alarma == 1) {
 		HAL_IWDG_Refresh(&hiwdg);
 		counter++;
 		sprintf(DataChar,"%d", counter ); UartDebug(DataChar);
-		if (counter == 4) { LedOff(); }
-		if (counter >= 10 ) { time_to_print = 1; }
+		if (counter ==  5 ) { LedOff(); }
+		if (counter >= 20 ) { time_to_print = 1; }
 		SetAlarm();
 		alarma = 0;
 	}
@@ -322,8 +358,21 @@ void SetAlarm (void) {
 	HAL_RTC_SetAlarm_IT(&hrtc, &AlarmSt, RTC_FORMAT_BIN);
 } //**************************************************************************
 
-//**************************************************************************
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	if ( GPIO_Pin == BUTTON_INFO_Pin) {
+		button_info = 1;
+	}
 
+	if ( GPIO_Pin == BUTTON_START_Pin ) {
+		button_start = 1;
+	}
+
+	if ( GPIO_Pin == BUTTON_STOP_Pin ) {
+		button_stop = 1;
+	}
+} //**************************************************************************
+
+//**************************************************************************
 /* USER CODE END 4 */
 
 /**

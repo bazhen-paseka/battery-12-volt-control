@@ -64,10 +64,11 @@
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 
-	void UartDebug(char* _text) ;
-	void StmSleep(void) 		;
-	void StmStop(void) 			;
-
+	void UartDebug	(char* _text) ;
+	void StmSleep	(void) ;
+	void StmStop	(void) ;
+	void LedOff 	(void) ;
+	void LedOn 		(lcd1602_handle* _hlcd1602) ;
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -173,9 +174,9 @@ int main(void)
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
 
 	//HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
-	HAL_Delay(1000);
+	HAL_Delay(2000);
 	HAL_IWDG_Refresh(&hiwdg);
-
+	LedOn(&hlcd1602);
 	adc1_value[0] = 1000 * adc1_value[0] / VOLT_COEFFICIENT;
 	sprintf(DataChar, "%lu.%02luV ", adc1_value[0]/100, adc1_value[0]%100 ); UartDebug(DataChar) ;
 
@@ -222,13 +223,13 @@ int main(void)
 		AlarmSt.Alarm = 0;
 		AlarmSt.AlarmTime.Hours   = TimeSt.Hours 		;
 		AlarmSt.AlarmTime.Minutes = TimeSt.Minutes + 0	;
-		AlarmSt.AlarmTime.Seconds = TimeSt.Seconds + 3	;
+		AlarmSt.AlarmTime.Seconds = TimeSt.Seconds + 7	;
 		sprintf(DataChar,"set alarm: %02d:%02d:%02d ",AlarmSt.AlarmTime.Hours, AlarmSt.AlarmTime.Minutes, AlarmSt.AlarmTime.Seconds ); UartDebug(DataChar) ;
 		HAL_StatusTypeDef alarm_status= HAL_RTC_SetAlarm_IT(&hrtc, &AlarmSt, RTC_FORMAT_BIN);
 		sprintf(DataChar," (status: %d) \r\n", alarm_status ); UartDebug(DataChar) ;
 		alarma = 0;
-		HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
-		HAL_GPIO_TogglePin(POWER_KEY_GPIO_Port,POWER_KEY_Pin);
+//		HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
+//		HAL_GPIO_TogglePin(POWER_KEY_GPIO_Port,POWER_KEY_Pin);
 	}
     /* USER CODE END WHILE */
 
@@ -293,6 +294,17 @@ void UartDebug(char* _text) {
 #endif
 } //**************************************************************************
 
+void LedOn (lcd1602_handle* _hlcd1602){
+	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(POWER_KEY_GPIO_Port,POWER_KEY_Pin,GPIO_PIN_SET);
+	HAL_Delay(100);
+	LCD1602_Init(_hlcd1602);
+}
+
+void LedOff (void){
+	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(POWER_KEY_GPIO_Port,POWER_KEY_Pin,GPIO_PIN_RESET);
+}
 void StmSleep(void) {
 #ifdef STOP_PRINT
 	sprintf(DataChar, "sleep.. "); UartDebug(DataChar) ;
@@ -337,6 +349,7 @@ void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc) {
 
 	sprintf(_text,"%02d:%02d:%02d\r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds );
 	UartDebug(_text);
+	LedOff();
 	alarma = 1;
 } //**************************************************************************
 

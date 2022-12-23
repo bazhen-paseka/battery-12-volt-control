@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "adc.h"
+#include "dma.h"
 #include "i2c.h"
 #include "iwdg.h"
 #include "rtc.h"
@@ -54,7 +55,8 @@
 
 /* USER CODE BEGIN PV */
 
-	uint8_t alarma = 0;
+	uint8_t 	alarma = 0;
+	uint32_t 	adc1_value[4];
 
 /* USER CODE END PV */
 
@@ -101,6 +103,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_I2C1_Init();
   MX_USART1_UART_Init();
   MX_ADC1_Init();
@@ -128,26 +131,16 @@ int main(void)
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
 	int counter = 0;
 
-	ADC1_Init(&hadc1, AMPER_CHANNEL);
-	ADC1_Init(&hadc1, VOLT_CHANNEL);
-
-	uint32_t adc1_init_value;
-	sprintf(DataChar,"ADC for blink: "); UartDebug(DataChar) ;
-	adc1_init_value = ADC1_GetValue( &hadc1, VOLT_CHANNEL ) ;
-	adc1_init_value = (1000 * adc1_init_value) / VOLT_COEFFICIENT;
-	sprintf(DataChar, "%lu.%02luV \r\n", adc1_init_value/100, adc1_init_value%100 ); UartDebug(DataChar) ;
-
 	RTC_TimeTypeDef TimeSt = { 0 } ;
 	HAL_RTC_GetTime(&hrtc, &TimeSt, RTC_FORMAT_BIN);
 	sprintf(DataChar,"RTC Time: %02d:%02d:%02d \r\n",TimeSt.Hours, TimeSt.Minutes, TimeSt.Seconds );
 	UartDebug(DataChar) ;
 	alarma = 1 ;
 
-	lcd1602_handle hlcd1602 =
-		{
-			.i2c = &hi2c1,
-			.device_i2c_address = ADR_I2C_FC113
-		};
+	lcd1602_handle hlcd1602 = {
+		.i2c = &hi2c1,
+		.device_i2c_address = ADR_I2C_FC113
+	};
 
 	LCD1602_Init(&hlcd1602);
 	LCD1602_Scan_I2C_bus(&hlcd1602);
@@ -156,14 +149,16 @@ int main(void)
 	LCD1602_Init(&hlcd1602);
 
 	LCD1602_Clear(&hlcd1602);
-	sprintf(DataChar,"Volt control\r\n");
+	sprintf(DataChar,"Volt control\r\n"); UartDebug(DataChar) ;
 	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 
-	sprintf(DataChar," Battery 12V\r\n");
+	sprintf(DataChar," Battery 12V\r\n"); UartDebug(DataChar) ;
 	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 	HAL_IWDG_Refresh(&hiwdg);
-	HAL_Delay(1000);
+	HAL_Delay(100);
 	LCD1602_Clear(&hlcd1602);
+
+	HAL_ADC_Start_DMA(&hadc1, adc1_value, 4);
 
 //	LCD_Init();
 //	LCD_PrintString(DataChar);
@@ -174,25 +169,33 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	sprintf(DataChar,"%d ", counter++ ) ;
+	sprintf(DataChar,"\r\n%d) ", counter++ ) ;
 	HAL_UART_Transmit( &huart1, (uint8_t *)DataChar , strlen(DataChar) , 100 ) ;
-	//LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 
 	HAL_GPIO_TogglePin(LED_GPIO_Port,LED_Pin);
-	HAL_Delay(500);
+	HAL_Delay(1000);
 	HAL_IWDG_Refresh(&hiwdg);
 
+	adc1_value[0] = 1000 * adc1_value[0] / VOLT_COEFFICIENT;
+	sprintf(DataChar, "%lu.%02luV ", adc1_value[0]/100, adc1_value[0]%100 ); UartDebug(DataChar) ;
 
-	uint32_t adc1_value = ADC1_GetValue( &hadc1, AMPER_CHANNEL ) ;
-	adc1_value = 1000 * adc1_value / VOLT_COEFFICIENT;
-	sprintf(DataChar, "%lu.%02luV ", adc1_value/100, adc1_value%100 ); UartDebug(DataChar) ;
+	//sprintf(DataChar, "%04luV ", adc1_value[0] ); UartDebug(DataChar) ;
 	LCD1602cursorToFirstPosition(&hlcd1602, LED_ON);
 	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 
-	uint32_t adc2_value = ADC1_GetValue( &hadc1, VOLT_CHANNEL ) ;
-	sprintf(DataChar, "%04luA", adc2_value ); UartDebug(DataChar) ;
+	sprintf(DataChar, "%03luA ", adc1_value[1]-3000 ); UartDebug(DataChar) ;
 	LCD1602_Print_Line(&hlcd1602, DataChar, strlen(DataChar), LED_ON);
 
+	#define TEMP_COEF 10000LU
+
+	uint32_t v25_u32 = 14300;
+	uint32_t avg_slope_u32 = 43;
+	uint32_t vsense_u32 = 1000 * 33 / 4096;
+
+	vsense_u32 = 33 * 1000 * adc1_value[2] / 4096;
+	uint32_t temp_u32 = (((v25_u32 - vsense_u32) / avg_slope_u32) + 25 );
+	sprintf(DataChar, "temp: %luC ", temp_u32 ); UartDebug(DataChar) ;
+	sprintf(DataChar, "Vref: %luV ", 3300*adc1_value[3]/4096 ); UartDebug(DataChar) ;
 	if (alarma == 1) {
 		HAL_IWDG_Refresh(&hiwdg);
 		RTC_TimeTypeDef TimeSt = { 0 } ;
